@@ -1,0 +1,133 @@
+<span style="font-size: 10pt;">#include <DHT.h>
+    #include <DHT_U.h>
+    
+    /*
+    * UIPEthernet UdpClient example.
+    *
+    * UIPEthernet is a TCP/IP stack that can be used with a enc28j60 based
+    * Ethernet-shield.
+    *
+    * UIPEthernet uses the fine uIP stack by Adam Dunkels <adam@sics.se>
+    *
+    * -----------------
+    *
+    * This UdpClient example tries to send a packet via udp to 192.168.0.1
+    * on port 5000 every 5 seconds. After successfully sending the packet it
+    * waits for up to 5 seconds for a response on the local port that has been
+    * implicitly opened when sending the packet.
+    *
+    * Copyright (C) 2013 by Norbert Truchsess (norbert.truchsess@t-online.de)
+    */
+    
+    #include <UIPEthernet.h>
+    #include "DHT.h"
+    #include <stdio.h>
+    
+    EthernetUDP udp;
+    unsigned long next;
+    
+    #define DHTPIN 2 // what digital pin we're connected to
+    
+    // Uncomment whatever type you're using!
+    #define DHTTYPE DHT11 // DHT 11
+    //#define DHTTYPE DHT22 // DHT 22 (AM2302), AM2321
+    //#define DHTTYPE DHT21 // DHT 21 (AM2301)
+    DHT dht(DHTPIN, DHTTYPE);
+    
+    void setup() {
+    
+    Serial.begin(9600);
+    
+    uint8_t mac[6] = {0x00,0x01,0x02,0x03,0xc4,0x05};
+    
+    Ethernet.begin(mac,IPAddress(192,168,1,6));
+    
+    next = millis()+5000;
+    dht.begin();
+    }
+    
+    // temp && humi
+    float getTemperature()
+    {
+    float t = dht.readTemperature();
+    return t;
+    }
+    float getHumidity()
+    {
+    float h = dht.readHumidity();
+    return h;
+    }
+    
+    void loop() {
+    String line,line111,temperature,Humidity;
+    int success;
+    int len = 0;
+    
+    //float h = dht.readHumidity();
+    // Read temperature as Celsius (the default)
+    ///float t = dht.readTemperature();
+    
+    temperature = String(getTemperature(), 2);
+    line = String("nhiet do la :" + temperature);
+    
+    Humidity = String(getHumidity(), 2);
+    line111 = String(", do am la :" + Humidity);
+    
+    String temp = "1234";
+    if (((signed long)(millis()-next))>0)
+    {
+    do
+    {
+    success = udp.beginPacket(IPAddress(192,168,1,90),1234);
+    Serial.print("beginPacket: ");
+    Serial.println(success ? "success" : "failed");
+    //beginPacket fails if remote ethaddr is unknown. In this case an
+    //arp-request is send out first and beginPacket succeeds as soon
+    //the arp-response is received.
+    }
+    while (!success && ((signed long)(millis()-next))<0);
+    if (!success )
+    goto stop;
+    
+    // success = udp.write("hello world from arduino");
+    success = udp.print(line);
+    success = udp.print(" \n");
+    success = udp.print(line111);
+    Serial.print("bytes written: ");
+    Serial.println(success);
+    
+    success = udp.endPacket();
+    
+    Serial.print("endPacket: ");
+    Serial.println(success ? "success" : "failed");
+    
+    do
+    {
+    //check for new udp-packet:
+    success = udp.parsePacket();
+    }
+    while (!success && ((signed long)(millis()-next))<0);
+    if (!success )
+    goto stop;
+    
+    Serial.print("received: '");
+    do
+    {
+    int c = udp.read();
+    Serial.write(c);
+    len++;
+    }
+    while ((success = udp.available())>0);
+    Serial.print("', ");
+    Serial.print(len);
+    Serial.println(" bytes");
+    
+    //finish reading this packet:
+    udp.flush();
+    
+    stop:
+    udp.stop();
+    next = millis()+5000;
+    }
+    }
+    </span>
